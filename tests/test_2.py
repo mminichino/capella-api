@@ -4,6 +4,7 @@ import logging
 import pytest
 import warnings
 from libcapella.config import CapellaConfig
+from libcapella.organization import CapellaOrganization
 from libcapella.project import CapellaProject
 
 warnings.filterwarnings("ignore")
@@ -13,6 +14,7 @@ logger.addHandler(logging.NullHandler())
 
 @pytest.mark.serial
 class TestProject(object):
+    project = "pytest-project"
 
     @classmethod
     def setup_class(cls):
@@ -23,16 +25,18 @@ class TestProject(object):
         pass
 
     def test_1(self):
-        config = CapellaConfig(project="pytest-project", profile="pytest")
-        project = CapellaProject(config)
-        result = project.list_projects()
+        config = CapellaConfig(profile="pytest")
+        org = CapellaOrganization(config)
+        project = CapellaProject(org, self.project)
+        result = project.list()
         assert len(result) >= 1
         assert result[0].id is not None
 
     def test_2(self):
-        config = CapellaConfig(project="pytest-project", profile="pytest")
-        project = CapellaProject(config)
+        config = CapellaConfig(profile="pytest")
+        org = CapellaOrganization(config)
+        project = CapellaProject(org, self.project)
         project_id = project.id
-        result = project.get_project(project_id)
+        result = project.get(project_id)
         assert result.id is not None
         assert result.id == project_id

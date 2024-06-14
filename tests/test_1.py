@@ -25,14 +25,14 @@ class TestOrganization(object):
     def test_1(self):
         config = CapellaConfig(profile="pytest")
         org = CapellaOrganization(config)
-        result = org.list_orgs()
+        result = org.list()
         assert len(result) >= 1
         assert result[0].id is not None
 
     def test_2(self):
         config = CapellaConfig(profile="pytest")
         org = CapellaOrganization(config)
-        org_list = org.list_orgs()
-        result = org.get_org(org_list[0].id)
+        org_list = org.list()
+        result = org.get(org_list[0].id)
         assert result.id is not None
         assert result.id == org_list[0].id
