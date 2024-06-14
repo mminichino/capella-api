@@ -15,6 +15,7 @@ class CouchbaseCapella(object):
     def __init__(self, config: CapellaConfig):
         self.auth_token = config.token
         self.api_host = config.api_host
+        self.project = config.project
         logger.debug(f"using auth profile {config.profile} API key ID {config.key_id}")
 
         auth = BearerAuth(self.auth_token)

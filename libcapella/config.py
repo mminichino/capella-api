@@ -15,7 +15,7 @@ logger.addHandler(logging.NullHandler())
 
 class CapellaConfig(object):
 
-    def __init__(self, profile: Union[str, None] = None):
+    def __init__(self, project: Union[str, None] = None, profile: Union[str, None] = None):
         self.home_dir = Path.home()
         self.config_directory = os.path.join(self.home_dir, '.capella')
         self.config_file = os.path.join(self.config_directory, 'credentials')
@@ -27,7 +27,7 @@ class CapellaConfig(object):
         self._token_file = None
         self._token_file_path = os.path.join(self.config_directory, 'default-api-key-token.txt')
         self._organization = None
-        self._project = None
+        self._project = project if project else 'default'
         self._account_email = None
         self._profile_key_id = None
         self._profile_token = None

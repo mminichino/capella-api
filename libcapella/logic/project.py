@@ -6,27 +6,18 @@ from libcapella.logic.common import Audit
 
 
 @attr.s
-class Preferences:
-    sessionDuration: int = attr.ib()
-
-
-@attr.s
-class Organization:
+class Project:
     id: str = attr.ib()
-    name: str = attr.ib()
     description: str = attr.ib()
-    preferences: Preferences = attr.ib()
+    name: str = attr.ib()
     audit: Audit = attr.ib()
 
     @classmethod
     def create(cls, data: dict):
         return cls(
             data.get("id"),
-            data.get("name"),
             data.get("description"),
-            Preferences(
-                data.get("preferences").get("sessionDuration")
-            ),
+            data.get("name"),
             Audit(
                 data.get("audit").get("createdBy"),
                 data.get("audit").get("createdAt"),
