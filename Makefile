@@ -21,4 +21,5 @@ pypi: setup push
 test:
 		python -m pytest \
 		tests/test_1.py \
-		tests/test_2.py
+		tests/test_2.py \
+		tests/test_3.py
