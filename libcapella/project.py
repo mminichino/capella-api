@@ -3,6 +3,7 @@
 
 import logging
 from typing import List, Union
+from restfull.restapi import NotFoundError
 from libcapella.organization import CapellaOrganization
 from libcapella.logic.project import Project
 from libcapella.user import CapellaUser
@@ -13,11 +14,16 @@ logger.addHandler(logging.NullHandler())
 
 class CapellaProject(object):
 
-    def __init__(self, org: CapellaOrganization, project: Union[str, None] = None):
+    def __init__(self, org: CapellaOrganization, project: str = None, email: str = None):
         self._endpoint = f"{org.endpoint}/{org.id}/projects"
         self.rest = org.rest
-        self.project = project if project else org.project
+        self.project_name = project if project else org.project
+        self.email = email
         self.org = org
+        if self.project_name:
+            self.project = self.get_by_name(self.project_name, self.email)
+        else:
+            self.project = None
 
     @property
     def endpoint(self):
@@ -25,19 +31,9 @@ class CapellaProject(object):
 
     @property
     def id(self):
-        result = (self.rest.get_paged(self._endpoint,
-                                      total_tag="totalItems",
-                                      pages_tag="last",
-                                      per_page_tag="perPage",
-                                      per_page=50,
-                                      cursor="cursor",
-                                      category="pages")
-                  .validate()
-                  .filter("name", self.project)
-                  .list_item(0))
-        if not result:
-            raise RuntimeError(f"Project {self.project} not found")
-        return Project.create(result).id
+        if not self.project:
+            return None
+        return self.project.id
 
     def list(self) -> List[Project]:
         result = self.rest.get_paged(self._endpoint,
@@ -50,17 +46,35 @@ class CapellaProject(object):
         logger.debug(f"project list: found {result.size}")
         return [Project.create(r) for r in result.as_list]
 
-    def list_by_user(self, email: str) -> List[Project]:
+    def owned_by_user(self, project_id: str, email: str) -> bool:
         user = CapellaUser(self.org, email)
         user_projects = user.projects_by_owner()
-        projects = self.list()
-        return [p for p in projects if p.id in user_projects]
+        return project_id in user_projects
 
-    def get(self, project_id: str) -> Project:
+    def get(self, project_id: str) -> Union[Project, None]:
         endpoint = self._endpoint + f"/{project_id}"
-        result = self.rest.get(endpoint).validate().as_json().json_object()
-        logger.debug(f"project get:\n{result.formatted}")
-        return Project.create(result.as_dict)
+        try:
+            result = self.rest.get(endpoint).validate().as_json().json_object()
+            return Project.create(result.as_dict)
+        except NotFoundError:
+            return None
+
+    def get_by_name(self, name: str, email: str = None) -> Union[Project, None]:
+        result = self.rest.get_paged(self._endpoint,
+                                     total_tag="totalItems",
+                                     pages_tag="last",
+                                     per_page_tag="perPage",
+                                     per_page=50,
+                                     cursor="cursor",
+                                     category="pages").validate().filter("name", name).list_item(0)
+        if not result:
+            return None
+        project = Project.create(result)
+        if email and not self.owned_by_user(project.id, email):
+            return None
+        return project
 
     def create(self, project: Project):
-        return self.rest.post(self._endpoint, project.as_dict_striped).validate().as_json().json_key("id")
+        project_id = self.rest.post(self._endpoint, project.as_dict_striped).validate().as_json().json_key("id")
+        project.id = project_id
+        self.project = project

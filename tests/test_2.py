@@ -16,30 +16,30 @@ logger.addHandler(logging.NullHandler())
 @pytest.mark.serial
 class TestUser(object):
     email = get_account_email()
+    user = None
 
     @classmethod
     def setup_class(cls):
         if not cls.email:
             raise RuntimeError('account email not set')
+        config = CapellaConfig(profile="pytest")
+        org = CapellaOrganization(config)
+        cls.user = CapellaUser(org, cls.email)
+        logger.debug("User test setup complete")
 
     @classmethod
     def teardown_class(cls):
         pass
 
     def test_1(self):
-        config = CapellaConfig(profile="pytest")
-        org = CapellaOrganization(config)
-        users = CapellaUser(org, self.email)
-        result = users.list()
+        result = self.user.list()
         assert len(result) >= 1
         assert result[0].id is not None
 
     def test_2(self):
-        config = CapellaConfig(profile="pytest")
-        org = CapellaOrganization(config)
-        user = CapellaUser(org, self.email)
-        user_id = user.id
-        result = user.get(user_id)
+        user_id = self.user.id
+        assert user_id is not None
+        result = self.user.get(user_id)
         assert result.id is not None
         assert result.id == user_id
         logger.debug(f"User email: {self.email} id: {user_id}")

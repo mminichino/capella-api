@@ -8,6 +8,7 @@ from libcapella.organization import CapellaOrganization
 from libcapella.project import CapellaProject
 from libcapella.database import CapellaDatabase
 from libcapella.logic.database import CapellaDatabaseBuilder
+from tests.common import get_account_email
 
 warnings.filterwarnings("ignore")
 logger = logging.getLogger('tests.test_3')
@@ -15,40 +16,52 @@ logger.addHandler(logging.NullHandler())
 
 
 @pytest.mark.serial
-class TestProject(object):
-    project = "pytest-project"
-    database_id = None
+class TestDatabase(object):
+    database_name = "pytest-cluster"
+    project_name = "pytest-project"
+    database = None
+    email = get_account_email()
 
     @classmethod
     def setup_class(cls):
-        pass
+        if not cls.email:
+            raise RuntimeError('account email not set')
+        config = CapellaConfig(profile="pytest")
+        org = CapellaOrganization(config)
+        project = CapellaProject(org, cls.project_name, cls.email)
+        if not project.id:
+            raise RuntimeError('project does not exist')
+        cls.database = CapellaDatabase(project)
 
     @classmethod
     def teardown_class(cls):
         pass
 
     def test_1(self):
-        config = CapellaConfig(profile="pytest")
-        org = CapellaOrganization(config)
-        project = CapellaProject(org, self.project)
-        database = CapellaDatabase(project)
+        if self.database.id:
+            logger.debug(f"Database {self.database_name} already exists")
+            return
 
         builder = CapellaDatabaseBuilder("aws")
-        builder = builder.name("pytest-cluster")
+        builder = builder.name(self.database_name)
         builder = builder.description("Pytest created cluster")
         builder = builder.region("us-east-2")
         builder = builder.service_group("4x16", 3, 256)
         config = builder.build()
-        result = database.create(config)
-        assert result is not None
-        self.database_id = result
+        self.database.create(config)
+        assert self.database.id is not None
 
     def test_2(self):
-        config = CapellaConfig(profile="pytest")
-        org = CapellaOrganization(config)
-        project = CapellaProject(org, self.project)
-        database = CapellaDatabase(project, "pytest-cluster")
-        database_id = database.id
-        result = database.get(database_id)
+        database_id = self.database.id
+        result = self.database.get(database_id)
         assert result.id is not None
         assert result.id == database_id
+
+    def test_3(self):
+        self.database.wait("deploying")
+
+    def test_4(self):
+        self.database.delete()
+
+    def test_5(self):
+        self.database.wait("destroying")
