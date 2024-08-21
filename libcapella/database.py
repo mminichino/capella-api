@@ -28,7 +28,7 @@ class CapellaDatabase(object):
             return None
         result = self.rest.get(self._endpoint).validate().as_json("data").filter("name", self.database).list_item(0)
         if not result:
-            raise RuntimeError(f"Database {self.database} found")
+            raise RuntimeError(f"Database {self.database} not found")
         return Database.create(result).id
 
     def list(self) -> List[Database]:
@@ -43,6 +43,4 @@ class CapellaDatabase(object):
         return Database.create(result.as_dict)
 
     def create(self, database: Database):
-        # import json
-        # print(json.dumps(database.as_dict_striped, indent=2))
         return self.rest.post(self._endpoint, database.as_dict_striped).validate().as_json().json_key("id")

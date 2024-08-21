@@ -22,4 +22,14 @@ test:
 		python -m pytest \
 		tests/test_1.py \
 		tests/test_2.py \
-		tests/test_3.py
+		tests/test_3.py \
+		tests/test_4.py \
+		tests/test_5.py
+test_user:
+		python -m pytest tests/test_2.py
+test_project:
+		python -m pytest tests/test_3.py
+test_database:
+		python -m pytest tests/test_4.py
+test_columnar:
+		python -m pytest tests/test_5.py
