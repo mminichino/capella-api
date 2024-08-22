@@ -3,6 +3,7 @@
 import logging
 import pytest
 import warnings
+import unittest
 from libcapella.config import CapellaConfig
 from libcapella.organization import CapellaOrganization
 from libcapella.user import CapellaUser
@@ -13,13 +14,13 @@ logger = logging.getLogger('tests.test_2')
 logger.addHandler(logging.NullHandler())
 
 
-@pytest.mark.serial
-class TestUser(object):
-    email = get_account_email()
-    user = None
+@pytest.mark.user_test
+@pytest.mark.order(2)
+class TestUser(unittest.TestCase):
 
     @classmethod
-    def setup_class(cls):
+    def setUpClass(cls):
+        cls.email = get_account_email()
         if not cls.email:
             raise RuntimeError('account email not set')
         config = CapellaConfig(profile="pytest")
@@ -28,7 +29,7 @@ class TestUser(object):
         logger.debug("User test setup complete")
 
     @classmethod
-    def teardown_class(cls):
+    def tearDownClass(cls):
         pass
 
     def test_1(self):

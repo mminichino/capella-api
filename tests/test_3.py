@@ -3,6 +3,7 @@
 import logging
 import pytest
 import warnings
+import unittest
 from libcapella.config import CapellaConfig
 from libcapella.organization import CapellaOrganization
 from libcapella.project import CapellaProject
@@ -15,15 +16,14 @@ logger = logging.getLogger('tests.test_2')
 logger.addHandler(logging.NullHandler())
 
 
-@pytest.mark.serial
-class TestProject(object):
-    project_name = "pytest-project"
-    project = None
-    org = None
-    email = get_account_email()
+@pytest.mark.project_test
+@pytest.mark.order(3)
+class TestProject(unittest.TestCase):
 
     @classmethod
-    def setup_class(cls):
+    def setUpClass(cls):
+        cls.project_name = "pytest-project"
+        cls.email = get_account_email()
         if not cls.email:
             raise RuntimeError('account email not set')
         config = CapellaConfig(profile="pytest")
@@ -31,7 +31,7 @@ class TestProject(object):
         cls.project = CapellaProject(cls.org, cls.project_name, cls.email)
 
     @classmethod
-    def teardown_class(cls):
+    def tearDownClass(cls):
         pass
 
     def test_1(self):
@@ -55,6 +55,7 @@ class TestProject(object):
 
     def test_3(self):
         project_id = self.project.id
+        assert project_id is not None
         result = self.project.get(project_id)
         assert result.id is not None
         assert result.id == project_id

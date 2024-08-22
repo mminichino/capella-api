@@ -3,6 +3,7 @@
 import logging
 import pytest
 import warnings
+import unittest
 from libcapella.config import CapellaConfig
 from libcapella.organization import CapellaOrganization
 from libcapella.project import CapellaProject
@@ -15,15 +16,15 @@ logger = logging.getLogger('tests.test_4')
 logger.addHandler(logging.NullHandler())
 
 
-@pytest.mark.serial
-class TestColumnar(object):
-    cluster_name = "pytest-columnar"
-    project_name = "pytest-project"
-    cluster = None
-    email = get_account_email()
+@pytest.mark.columnar_test
+@pytest.mark.order(5)
+class TestColumnar(unittest.TestCase):
 
     @classmethod
-    def setup_class(cls):
+    def setUpClass(cls):
+        cls. cluster_name = "pytest-columnar"
+        cls.project_name = "pytest-project"
+        cls.email = get_account_email()
         if not cls.email:
             raise RuntimeError('account email not set')
         config = CapellaConfig(profile="pytest")
@@ -34,7 +35,7 @@ class TestColumnar(object):
         cls.cluster = CapellaColumnar(project)
 
     @classmethod
-    def teardown_class(cls):
+    def tearDownClass(cls):
         pass
 
     def test_1(self):
@@ -53,6 +54,7 @@ class TestColumnar(object):
 
     def test_2(self):
         columnar_id = self.cluster.id
+        assert columnar_id is not None
         result = self.cluster.get(columnar_id)
         assert result.id is not None
         assert result.id == columnar_id

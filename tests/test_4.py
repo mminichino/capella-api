@@ -3,6 +3,7 @@
 import logging
 import pytest
 import warnings
+import unittest
 from libcapella.config import CapellaConfig
 from libcapella.organization import CapellaOrganization
 from libcapella.project import CapellaProject
@@ -15,26 +16,26 @@ logger = logging.getLogger('tests.test_3')
 logger.addHandler(logging.NullHandler())
 
 
-@pytest.mark.serial
-class TestDatabase(object):
-    database_name = "pytest-cluster"
-    project_name = "pytest-project"
-    database = None
-    email = get_account_email()
+@pytest.mark.database_test
+@pytest.mark.order(4)
+class TestDatabase(unittest.TestCase):
 
     @classmethod
-    def setup_class(cls):
+    def setUpClass(cls):
+        cls.database_name = "pytest-cluster"
+        cls.project_name = "pytest-project"
+        cls.email = get_account_email()
         if not cls.email:
             raise RuntimeError('account email not set')
         config = CapellaConfig(profile="pytest")
-        org = CapellaOrganization(config)
-        project = CapellaProject(org, cls.project_name, cls.email)
-        if not project.id:
+        cls.org = CapellaOrganization(config)
+        cls.project = CapellaProject(cls.org, cls.project_name, cls.email)
+        if not cls.project.id:
             raise RuntimeError('project does not exist')
-        cls.database = CapellaDatabase(project)
+        cls.database = CapellaDatabase(cls.project, cls.database_name)
 
     @classmethod
-    def teardown_class(cls):
+    def tearDownClass(cls):
         pass
 
     def test_1(self):
@@ -53,6 +54,7 @@ class TestDatabase(object):
 
     def test_2(self):
         database_id = self.database.id
+        assert database_id is not None
         result = self.database.get(database_id)
         assert result.id is not None
         assert result.id == database_id
