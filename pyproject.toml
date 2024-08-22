@@ -1,0 +1,69 @@
+[tool.poetry]
+name = "libcapella"
+description = "Couchbase Capella Python API"
+version = "1.0.2"
+readme = "README.md"
+authors = ["Michael Minichino <info@unix.us.com>"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+keywords = ["couchbase", "capella", "api"]
+packages = [
+    { include = "libcapella" }
+]
+
+[tool.poetry.urls]
+"Homepage" = "https://github.com/mminichino/capella-api"
+
+[[tool.poetry.source]]
+name = "pypi-public"
+url = "https://pypi.org/simple/"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<4"
+attrs = ">=23.1.0"
+restfull = ">=1.0.9"
+
+[tool.poetry.group.test.dependencies]
+pytest = ">=8.1.1"
+pytest-asyncio = ">=0.23.6"
+
+[tool.poetry.group.dev.dependencies]
+bumpversion = "^0.6.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+addopts = "-rE --no-header -v -p no:warnings"
+log_file = "pytest.log"
+log_file_level = "DEBUG"
+pythonpath = [
+    ".",
+    "tests"
+]
+testpaths = [
+    "tests",
+]
+python_classes = [
+    "Test*"
+]
+python_files = [
+    "test_[0-9]*.py"
+]
+markers = [
+    "org_test: marks a test as an Organization test",
+    "user_test: marks a test as a User test",
+    "project_test: marks a test as a Project test",
+    "database_test: marks a test as a Database test",
+    "columnar_test: marks a test as a Columnar test",
+]
