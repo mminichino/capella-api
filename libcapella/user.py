@@ -32,16 +32,18 @@ class CapellaUser(object):
             return None
         return self.user_record.id
 
-    def list(self) -> List[User]:
+    def list(self):
+        return [User.create(r) for r in self.get_all_users()]
+
+    def get_all_users(self) -> List[dict]:
         result = self.rest.get_paged(self._endpoint,
                                      total_tag="totalItems",
                                      pages_tag="last",
                                      per_page_tag="perPage",
-                                     per_page=50,
+                                     per_page=100,
                                      cursor="cursor",
                                      category="pages").validate().json_list()
-        logger.debug(f"project list: found {result.size}")
-        return [User.create(r) for r in result.as_list]
+        return result.as_list
 
     def get(self, user_id: str) -> Union[User, None]:
         endpoint = self._endpoint + f"/{user_id}"
@@ -52,16 +54,10 @@ class CapellaUser(object):
             return None
 
     def get_by_email(self, email: str) -> Union[User, None]:
-        result = self.rest.get_paged(self._endpoint,
-                                     total_tag="totalItems",
-                                     pages_tag="last",
-                                     per_page_tag="perPage",
-                                     per_page=50,
-                                     cursor="cursor",
-                                     category="pages").validate().filter("email", email).list_item(0)
-        if not result:
-            return None
-        return User.create(result)
+        user = next((u for u in self.list() if u.email == email), None)
+        while not user:
+            user = next((u for u in self.list() if u.email == email), None)
+        return user
 
     def set_project_owner(self, project_id: str):
         user_id = self.id

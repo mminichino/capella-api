@@ -3,6 +3,7 @@
 import logging
 import pytest
 import warnings
+import unittest
 from libcapella.config import CapellaConfig
 from libcapella.organization import CapellaOrganization
 
@@ -11,28 +12,26 @@ logger = logging.getLogger('tests.test_1')
 logger.addHandler(logging.NullHandler())
 
 
-@pytest.mark.serial
-class TestOrganization(object):
+@pytest.mark.org_test
+@pytest.mark.order(1)
+class TestOrganization(unittest.TestCase):
 
     @classmethod
-    def setup_class(cls):
-        pass
+    def setUpClass(cls):
+        cls.config = CapellaConfig(profile="pytest")
+        cls.org = CapellaOrganization(cls.config)
 
     @classmethod
-    def teardown_class(cls):
+    def tearDownClass(cls):
         pass
 
     def test_1(self):
-        config = CapellaConfig(profile="pytest")
-        org = CapellaOrganization(config)
-        result = org.list()
+        result = self.org.list()
         assert len(result) >= 1
         assert result[0].id is not None
 
     def test_2(self):
-        config = CapellaConfig(profile="pytest")
-        org = CapellaOrganization(config)
-        org_list = org.list()
-        result = org.get(org_list[0].id)
+        org_list = self.org.list()
+        result = self.org.get(org_list[0].id)
         assert result.id is not None
         assert result.id == org_list[0].id
