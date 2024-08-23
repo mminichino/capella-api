@@ -7,7 +7,7 @@ from restfull.restapi import NotFoundError
 from libcapella.logic.allowed_cidr import AllowedCIDR
 from libcapella.database import CapellaDatabase
 
-logger = logging.getLogger('libcapella.project')
+logger = logging.getLogger('libcapella.database_allowed_cidr')
 logger.addHandler(logging.NullHandler())
 
 

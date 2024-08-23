@@ -34,6 +34,10 @@ class CapellaDatabase(object):
             return None
         return self.database.id
 
+    @property
+    def this(self) -> Database:
+        return self.get(self.database.id)
+
     def list(self) -> List[Database]:
         result = self.rest.get_paged(self._endpoint,
                                      total_tag="totalItems",
@@ -46,6 +50,8 @@ class CapellaDatabase(object):
         return [Database.create(r) for r in result.as_list]
 
     def get(self, database_id: str) -> Union[Database, None]:
+        if not database_id:
+            return None
         endpoint = f"{self._endpoint}/{database_id}"
         try:
             result = self.rest.get(endpoint).validate().as_json().json_object()

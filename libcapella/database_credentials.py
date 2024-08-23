@@ -7,7 +7,7 @@ from restfull.restapi import NotFoundError
 from libcapella.logic.credentials import DatabaseCredentials
 from libcapella.database import CapellaDatabase
 
-logger = logging.getLogger('libcapella.project')
+logger = logging.getLogger('libcapella.database_credentials')
 logger.addHandler(logging.NullHandler())
 
 

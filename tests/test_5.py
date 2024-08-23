@@ -8,7 +8,9 @@ from libcapella.config import CapellaConfig
 from libcapella.organization import CapellaOrganization
 from libcapella.project import CapellaProject
 from libcapella.columnar import CapellaColumnar
+from libcapella.columnar_allowed_cidr import ColumnarAllowedCIDR
 from libcapella.logic.columnar import CapellaColumnarBuilder
+from libcapella.logic.allowed_cidr import AllowedCIDRBuilder
 from tests.common import get_account_email
 
 warnings.filterwarnings("ignore")
@@ -24,6 +26,7 @@ class TestColumnar(unittest.TestCase):
     def setUpClass(cls):
         cls. cluster_name = "pytest-columnar"
         cls.project_name = "pytest-project"
+        cls.cidr = "0.0.0.0/0"
         cls.email = get_account_email()
         if not cls.email:
             raise RuntimeError('account email not set')
@@ -39,18 +42,15 @@ class TestColumnar(unittest.TestCase):
         pass
 
     def test_1(self):
-        if self.cluster.id:
-            logger.debug(f"Cluster {self.cluster_name} already exists")
-            return
-
-        builder = CapellaColumnarBuilder("aws")
-        builder = builder.name(self.cluster_name)
-        builder = builder.description("Pytest created cluster")
-        builder = builder.region("us-east-1")
-        builder = builder.compute("4x32", 4)
-        config = builder.build()
-        self.cluster.create(config)
-        assert self.cluster.id is not None
+        if not self.cluster.id:
+            builder = CapellaColumnarBuilder("aws")
+            builder = builder.name(self.cluster_name)
+            builder = builder.description("Pytest created cluster")
+            builder = builder.region("us-east-1")
+            builder = builder.compute("4x32", 4)
+            config = builder.build()
+            self.cluster.create(config)
+            assert self.cluster.id is not None
 
     def test_2(self):
         columnar_id = self.cluster.id
@@ -63,7 +63,16 @@ class TestColumnar(unittest.TestCase):
         self.cluster.wait("deploying")
 
     def test_4(self):
-        self.cluster.delete()
+        self.allowed_cidr = ColumnarAllowedCIDR(self.cluster, self.cidr)
+        if not self.allowed_cidr.id:
+            builder = AllowedCIDRBuilder()
+            builder.cidr(self.cidr)
+            config = builder.build()
+            self.allowed_cidr.create(config)
+            assert self.allowed_cidr.id is not None
 
     def test_5(self):
+        self.cluster.delete()
+
+    def test_6(self):
         self.cluster.wait("destroying")

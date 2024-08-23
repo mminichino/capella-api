@@ -34,6 +34,10 @@ class CapellaColumnar(object):
             return None
         return self.cluster.id
 
+    @property
+    def this(self) -> Columnar:
+        return self.get(self.cluster.id)
+
     def list(self) -> List[Columnar]:
         result = self.rest.get_paged(self._endpoint,
                                      total_tag="totalItems",
@@ -46,6 +50,8 @@ class CapellaColumnar(object):
         return [Columnar.create(r) for r in result.as_list]
 
     def get(self, columnar_id: str) -> Union[Columnar, None]:
+        if not columnar_id:
+            return None
         endpoint = f"{self._endpoint}/{columnar_id}"
         try:
             result = self.rest.get(endpoint).validate().as_json().json_object()

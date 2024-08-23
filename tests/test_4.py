@@ -8,8 +8,8 @@ from libcapella.config import CapellaConfig
 from libcapella.organization import CapellaOrganization
 from libcapella.project import CapellaProject
 from libcapella.database import CapellaDatabase
-from libcapella.allowed_cidr import CapellaAllowedCIDR
-from libcapella.credentials import CapellaDatabaseCredentials
+from libcapella.database_allowed_cidr import CapellaAllowedCIDR
+from libcapella.database_credentials import CapellaDatabaseCredentials
 from libcapella.logic.database import CapellaDatabaseBuilder
 from libcapella.logic.allowed_cidr import AllowedCIDRBuilder
 from libcapella.logic.credentials import DatabaseCredentialsBuilder
@@ -58,6 +58,17 @@ class TestDatabase(unittest.TestCase):
             self.database.create(config)
             assert self.database.id is not None
 
+    def test_2(self):
+        database_id = self.database.id
+        assert database_id is not None
+        result = self.database.get(database_id)
+        assert result.id is not None
+        assert result.id == database_id
+
+    def test_3(self):
+        self.database.wait("deploying")
+
+    def test_4(self):
         self.allowed_cidr = CapellaAllowedCIDR(self.database, self.cidr)
         if not self.allowed_cidr.id:
             builder = AllowedCIDRBuilder()
@@ -74,18 +85,8 @@ class TestDatabase(unittest.TestCase):
             self.database_credential.create(config)
             assert self.database_credential.id is not None
 
-    def test_2(self):
-        database_id = self.database.id
-        assert database_id is not None
-        result = self.database.get(database_id)
-        assert result.id is not None
-        assert result.id == database_id
+    def test_5(self):
+        self.database.delete()
 
-    def test_3(self):
-        self.database.wait("deploying")
-
-    # def test_4(self):
-    #     self.database.delete()
-    #
-    # def test_5(self):
-    #     self.database.wait("destroying")
+    def test_6(self):
+        self.database.wait("destroying")
