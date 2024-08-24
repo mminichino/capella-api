@@ -15,17 +15,21 @@ class CapellaOrganization(CouchbaseCapella):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._endpoint = "/v4/organizations"
+        self.organization = self.get_default()
 
     @property
     def endpoint(self):
         return self._endpoint
 
     @property
+    def id_endpoint(self):
+        return f"{self.endpoint}/{self.id}"
+
+    @property
     def id(self):
-        result = self.list()
-        if not len(result) >= 1:
-            raise RuntimeError("No organizations found")
-        return result[0].id
+        if not self.organization:
+            return None
+        return self.organization.id
 
     def list(self) -> List[Organization]:
         result = self.rest.get(self._endpoint).validate().as_json("data").json_list()
@@ -37,3 +41,9 @@ class CapellaOrganization(CouchbaseCapella):
         result = self.rest.get(endpoint).validate().as_json().json_object()
         logger.debug(f"organization get:\n{result.formatted}")
         return Organization.create(result.as_dict)
+
+    def get_default(self) -> Organization:
+        result = self.list()
+        if not len(result) >= 1:
+            raise RuntimeError("No organizations found")
+        return result[0]

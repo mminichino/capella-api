@@ -68,11 +68,10 @@ class CapellaAppServiceBuilder(object):
     def __init__(self):
         self._name = "AppService"
         self._description = "Automation Generated App Service"
-        self._cloud = "aws"
         self._version = None
         self._nodes = 2
-        self._cpu = 2
-        self._ram = 4
+        self._cpu = 8
+        self._ram = 16
 
     def name(self, name: str):
         self._name = name
@@ -80,10 +79,6 @@ class CapellaAppServiceBuilder(object):
 
     def description(self, description: str):
         self._description = description
-        return self
-
-    def cloud(self, cloud: str):
-        self._cloud = cloud
         return self
 
     def version(self, version: str):
@@ -104,7 +99,6 @@ class CapellaAppServiceBuilder(object):
         return AppService.create(dict(
             name=self._name,
             description=self._description,
-            cloudProvider=self._cloud,
             nodes=self._nodes,
             compute=dict(
                 cpu=self._cpu,

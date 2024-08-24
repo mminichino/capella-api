@@ -10,9 +10,11 @@ from libcapella.project import CapellaProject
 from libcapella.database import CapellaDatabase
 from libcapella.database_allowed_cidr import CapellaAllowedCIDR
 from libcapella.database_credentials import CapellaDatabaseCredentials
+from libcapella.app_service import CapellaAppService
 from libcapella.logic.database import CapellaDatabaseBuilder
 from libcapella.logic.allowed_cidr import AllowedCIDRBuilder
 from libcapella.logic.credentials import DatabaseCredentialsBuilder
+from libcapella.logic.app_service import CapellaAppServiceBuilder
 from tests.common import get_account_email
 
 warnings.filterwarnings("ignore")
@@ -27,6 +29,7 @@ class TestDatabase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.database_name = "pytest-cluster"
+        cls.app_service_name = "pytest-app-svc"
         cls.project_name = "pytest-project"
         cls.cidr = "0.0.0.0/0"
         cls.username = "developer"
@@ -42,6 +45,7 @@ class TestDatabase(unittest.TestCase):
         cls.database = CapellaDatabase(cls.project, cls.database_name)
         cls.allowed_cidr = None
         cls.database_credential = None
+        cls.app_service = None
 
     @classmethod
     def tearDownClass(cls):
@@ -57,6 +61,7 @@ class TestDatabase(unittest.TestCase):
             config = builder.build()
             self.database.create(config)
             assert self.database.id is not None
+            self.database.wait("deploying")
 
     def test_2(self):
         database_id = self.database.id
@@ -66,9 +71,6 @@ class TestDatabase(unittest.TestCase):
         assert result.id == database_id
 
     def test_3(self):
-        self.database.wait("deploying")
-
-    def test_4(self):
         self.allowed_cidr = CapellaAllowedCIDR(self.database, self.cidr)
         if not self.allowed_cidr.id:
             builder = AllowedCIDRBuilder()
@@ -85,8 +87,20 @@ class TestDatabase(unittest.TestCase):
             self.database_credential.create(config)
             assert self.database_credential.id is not None
 
+    def test_4(self):
+        self.app_service = CapellaAppService(self.database)
+        if not self.app_service.id:
+            builder = CapellaAppServiceBuilder()
+            builder.name(self.app_service_name)
+            builder.compute("4x8", 2)
+            config = builder.build()
+            self.app_service.create(config)
+            assert self.app_service.id is not None
+            self.app_service.wait("healthy", until=True)
+
+        self.app_service.delete()
+        self.app_service.wait("destroying")
+
     def test_5(self):
         self.database.delete()
-
-    def test_6(self):
         self.database.wait("destroying")
