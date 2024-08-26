@@ -288,7 +288,7 @@ class CapellaDatabaseBuilder(object):
         else:
             availability = "single"
 
-        if not self._plan or self._plan == "developer" or self._plan == "pro" or self._plan == "developer-pro" or self._plan == "developer pro":
+        if not self._plan or self._plan == "developer" or self._plan == "devpro" or self._plan == "developer-pro" or self._plan == "developer pro":
             plan = "developer pro"
         elif self._plan == "enterprise" or self._plan == "prod" or self._plan == "production":
             plan = "enterprise"

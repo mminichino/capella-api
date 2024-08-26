@@ -97,12 +97,12 @@ class CapellaColumnarBuilder(object):
                  cloud,
                  name='datamart',
                  description='Columnar Cluster',
-                 cpu=8,
+                 cpu=4,
                  ram=32,
-                 quantity=4,
+                 quantity=1,
                  region='us-east-1',
                  availability='single',
-                 plan='devpro',
+                 plan='developer',
                  timezone='us_west'):
         self._name = name
         self._description = description
@@ -159,7 +159,7 @@ class CapellaColumnarBuilder(object):
         else:
             availability = "multi"
 
-        if not self._plan or self._plan == "developer" or self._plan == "pro" or self._plan == "developer-pro" or self._plan == "developer pro":
+        if not self._plan or self._plan == "developer" or self._plan == "devpro" or self._plan == "developer-pro" or self._plan == "developer pro":
             plan = "developer pro"
         else:
             plan = "enterprise"
