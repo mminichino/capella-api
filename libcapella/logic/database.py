@@ -248,10 +248,10 @@ class CapellaDatabaseBuilder(object):
 
         if self._cloud == "aws":
             _storage = int(storage)
-            _iops = next((aws_storage_matrix[s] for s in aws_storage_matrix if s >= storage), None)
+            _iops = next((aws_storage_matrix[s] for s in aws_storage_matrix if s >= _storage), None)
             _storage_type = "gp3"
         elif self._cloud == "azure":
-            size, s_type = next(((s, azure_storage_matrix[s]) for s in azure_storage_matrix if s >= storage), None)
+            size, s_type = next(((s, azure_storage_matrix[s]) for s in azure_storage_matrix if s >= int(storage)), None)
             _storage = int(size)
             _storage_type = s_type
             _iops = None
