@@ -38,6 +38,9 @@ class CapellaDatabase(object):
     def this(self) -> Database:
         return self.get(self.database.id)
 
+    def refresh(self):
+        self.database = self.get(self.database.id)
+
     def list(self) -> List[Database]:
         result = self.rest.get_paged(self._endpoint,
                                      total_tag="totalItems",

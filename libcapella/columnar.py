@@ -38,6 +38,9 @@ class CapellaColumnar(object):
     def this(self) -> Columnar:
         return self.get(self.cluster.id)
 
+    def refresh(self):
+        self.cluster = self.get(self.cluster.id)
+
     def list(self) -> List[Columnar]:
         result = self.rest.get_paged(self._endpoint,
                                      total_tag="totalItems",
