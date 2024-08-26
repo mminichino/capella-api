@@ -36,7 +36,7 @@ class CapellaDatabase(object):
 
     @property
     def this(self) -> Database:
-        return self.get(self.database.id)
+        return self.database
 
     def refresh(self):
         self.database = self.get(self.database.id)

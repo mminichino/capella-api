@@ -36,7 +36,7 @@ class CapellaColumnar(object):
 
     @property
     def this(self) -> Columnar:
-        return self.get(self.cluster.id)
+        return self.cluster
 
     def refresh(self):
         self.cluster = self.get(self.cluster.id)
