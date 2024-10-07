@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "libcapella"
 description = "Couchbase Capella Python API"
-version = "1.0.9"
+version = "1.0.10"
 readme = "README.md"
 authors = ["Michael Minichino <info@unix.us.com>"]
 classifiers = [
@@ -30,17 +30,20 @@ url = "https://pypi.org/simple/"
 [tool.poetry.dependencies]
 python = ">=3.8,<4"
 attrs = ">=23.1.0"
-restfull = ">=1.0.9"
+restfull = ">=1.0.10"
 
 [tool.poetry.group.test.dependencies]
 pytest = ">=8.1.1"
 pytest-asyncio = ">=0.23.6"
+botocore = ">=1.34.17"
+boto3 = ">=1.34.17"
 
 [tool.poetry.group.dev.dependencies]
 bumpversion = "^0.6.0"
+poetry-core = ">=1.9.0"
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
@@ -66,4 +69,5 @@ markers = [
     "project_test: marks a test as a Project test",
     "database_test: marks a test as a Database test",
     "columnar_test: marks a test as a Columnar test",
+    "aws_test: marks a test as an AWS test",
 ]

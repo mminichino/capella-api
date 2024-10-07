@@ -1,4 +1,4 @@
-# libcapella 1.0.9
+# libcapella 1.0.10
 
 ## Installing
 ```
