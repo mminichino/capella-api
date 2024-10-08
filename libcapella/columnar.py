@@ -79,13 +79,13 @@ class CapellaColumnar(object):
         columnar.id = cluster_id
         self.cluster = columnar
 
-    def wait(self, state, retry_count: int = 240):
+    def wait(self, state, retry_count: int = 36):
         if not self.cluster:
             return True
         for retry_number in range(retry_count + 1):
             check = self.get(self.cluster.id)
+            logger.debug(f"Checking cluster state {check.currentState if check else None} with state {state}")
             if check and check.currentState != state:
-                time.sleep(1)
                 return True
             elif not check:
                 return True
@@ -93,7 +93,7 @@ class CapellaColumnar(object):
                 if retry_number == retry_count:
                     return False
                 logger.debug(f"Waiting for cluster {self.cluster.name} to reach state {state}")
-                time.sleep(5)
+                time.sleep(10)
 
     def delete(self):
         if self.cluster.id:

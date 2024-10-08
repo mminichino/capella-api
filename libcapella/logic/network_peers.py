@@ -65,43 +65,45 @@ class NetworkPeerStatus:
 class NetworkPeers:
     id: str = attr.ib()
     name: str = attr.ib()
+    providerType: str = attr.ib()
     status: NetworkPeerStatus = attr.ib()
     commands: List[str] = attr.ib()
     providerConfig: ProviderConfig = attr.ib()
     audit: Audit = attr.ib()
 
     @classmethod
-    def create(cls, data: dict):
+    def create(cls, data: dict, new: bool = False):
         return cls(
             data.get("id"),
             data.get("name"),
+            data.get("providerType"),
             NetworkPeerStatus(
-                data.get("status").get("state"),
-                data.get("status").get("reasoning"),
+                data.get("status", {}).get("state"),
+                data.get("status", {}).get("reasoning"),
             ),
-            data.get("commands"),
+            data.get("commands", []),
             ProviderConfig(
-                data.get("providerConfig").get("providerId"),
+                data.get("providerConfig", {}).get("providerId"),
                 AWSConfig(
                     data.get("providerConfig").get("AWSConfig").get("accountId"),
                     data.get("providerConfig").get("AWSConfig").get("vpcId"),
                     data.get("providerConfig").get("AWSConfig").get("region"),
                     data.get("providerConfig").get("AWSConfig").get("cidr"),
-                ) if data.get("providerConfig").get("AWSConfig") else None,
+                ) if data.get("providerConfig", {}).get("AWSConfig") else None,
                 GCPConfig(
                     data.get("providerConfig").get("GCPConfig").get("networkName"),
                     data.get("providerConfig").get("GCPConfig").get("cidr"),
                     data.get("providerConfig").get("GCPConfig").get("projectId"),
                     data.get("providerConfig").get("GCPConfig").get("serviceAccountId"),
-                ) if data.get("providerConfig").get("GCPConfig") else None,
+                ) if data.get("providerConfig", {}).get("GCPConfig") else None,
                 AzureConfig(
                     data.get("providerConfig").get("AzureConfig").get("azureTenantId"),
                     data.get("providerConfig").get("AzureConfig").get("subscriptionId"),
                     data.get("providerConfig").get("AzureConfig").get("resourceGroup"),
                     data.get("providerConfig").get("AzureConfig").get("vnetId"),
                     data.get("providerConfig").get("AzureConfig").get("cidr"),
-                ) if data.get("providerConfig").get("AzureConfig") else None,
-            ),
+                ) if data.get("providerConfig", {}).get("AzureConfig") else None,
+            ) if not new else data.get("providerConfig", {}),
             Audit(
                 data.get("audit", {}).get("createdBy"),
                 data.get("audit", {}).get("createdAt"),
@@ -121,8 +123,10 @@ class NetworkPeers:
         result = not_none(self.as_dict)
         if 'audit' in result:
             del result['audit']
-        if len(result.get('access')[0].get('resources', {}).get('buckets', [])) == 0:
-            del result['access'][0]['resources']
+        if 'status' in result and not result['status']:
+            del result['status']
+        if 'commands' in result and len(result['commands']) == 0:
+            del result['commands']
         return result
 
 
@@ -219,4 +223,4 @@ class NetworkPeerBuilder(object):
             name=self._name,
             providerType=self._provider_type,
             providerConfig=provider_config
-        ))
+        ), new=True)

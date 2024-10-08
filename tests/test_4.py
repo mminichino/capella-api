@@ -19,7 +19,8 @@ from libcapella.logic.allowed_cidr import AllowedCIDRBuilder
 from libcapella.logic.credentials import DatabaseCredentialsBuilder
 from libcapella.logic.app_service import CapellaAppServiceBuilder
 from libcapella.logic.network_peers import NetworkPeerBuilder
-from tests.common import get_account_email, create_aws_vpc, get_aws_vpc_peer, delete_aws_vpc, aws_vpc_peering_accept, aws_region
+from tests.common import (get_account_email, aws_account_id, create_aws_vpc, get_aws_vpc, get_aws_vpc_peer, delete_aws_vpc, aws_vpc_peering_accept, aws_region,
+                          aws_associate_hosted_zone)
 
 warnings.filterwarnings("ignore")
 logger = logging.getLogger('tests.test_3')
@@ -38,6 +39,7 @@ class TestDatabase(unittest.TestCase):
         cls.project_name = "pytest-project"
         cls.vpc_name = "pytest-vpc"
         cls.vpc_cidr = "10.77.0.0/16"
+        cls.vpc_id = None
         cls.cidr = "0.0.0.0/0"
         cls.username = "developer"
         cls.password = "P@ssw0rd!"
@@ -54,7 +56,14 @@ class TestDatabase(unittest.TestCase):
         cls.database_credential = None
         cls.network_peer = None
         cls.app_service = None
-        cls.aws_vpc_id = None
+        if not cls.vpc_id:
+            vpc_list = get_aws_vpc(cls.vpc_name, cls.vpc_cidr)
+            if not vpc_list:
+                cls.aws_vpc_id = create_aws_vpc(cls.vpc_name, cls.vpc_cidr)
+            else:
+                cls.aws_vpc_id = vpc_list[0].get('VpcId')
+        else:
+            cls.aws_vpc_id = cls.vpc_id
 
     @classmethod
     def tearDownClass(cls):
@@ -111,11 +120,11 @@ class TestDatabase(unittest.TestCase):
             assert self.database_credential.id is not None
 
     def test_5(self):
-        self.network_peer = CapellaNetworkPeers(self.database, self.vpc_name)
+        self.network_peer = CapellaNetworkPeers(self.database)
         if not self.network_peer.id:
-            self.aws_vpc_id = create_aws_vpc(self.vpc_name, self.vpc_cidr)
+            account_id = aws_account_id()
             builder = NetworkPeerBuilder()
-            builder.account_id("")
+            builder.account_id(account_id)
             builder.vpc_id(self.aws_vpc_id)
             builder.region(aws_region)
             builder.cidr(self.cidr)
@@ -128,21 +137,25 @@ class TestDatabase(unittest.TestCase):
         status = peer.get('Status', {}).get('Code')
         if status == 'pending-acceptance':
             aws_vpc_peering_accept(self.network_peer.provider_id)
+            zone = self.network_peer.hosted_zone_id
+            aws_associate_hosted_zone(zone, self.aws_vpc_id, aws_region)
+            self.database.wait("peering")
 
     def test_6(self):
         self.app_service = CapellaAppService(self.database)
         if not self.app_service.id:
             builder = CapellaAppServiceBuilder()
             builder.name(self.app_service_name)
-            builder.compute("4x8", 2)
+            builder.compute("4x8", 1)
             config = builder.build()
             self.app_service.create(config)
             assert self.app_service.id is not None
             self.app_service.wait("healthy", until=True)
 
-        # self.app_service.delete()
-        # self.app_service.wait("destroying")
+        self.app_service.delete()
+        self.app_service.wait("destroying")
 
-    # def test_7(self):
-    #     self.database.delete()
-    #     self.database.wait("destroying")
+    def test_7(self):
+        self.database.delete()
+        self.database.wait("destroying")
+        delete_aws_vpc(self.aws_vpc_id)

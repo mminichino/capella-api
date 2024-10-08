@@ -1,6 +1,7 @@
 ##
 ##
 
+import re
 import logging
 from typing import List, Union
 from restfull.restapi import NotFoundError
@@ -13,14 +14,11 @@ logger.addHandler(logging.NullHandler())
 
 class CapellaNetworkPeers(object):
 
-    def __init__(self, database: CapellaDatabase, name: str = None):
+    def __init__(self, database: CapellaDatabase, name: str = "NetworkPeer"):
         self._endpoint = f"{database.endpoint}/{database.id}/networkPeers"
         self.rest = database.rest
         self.name = name
-        if self.name:
-            self.network_peer = self.get_by_name(self.name)
-        else:
-            self.network_peer = None
+        self.network_peer = self.get_by_name(self.name)
 
     @property
     def endpoint(self):
@@ -38,7 +36,12 @@ class CapellaNetworkPeers(object):
 
     @property
     def provider_id(self):
-        return self.network_peer.provider_id
+        return self.network_peer.providerConfig.providerId
+
+    @property
+    def hosted_zone_id(self):
+        cmd_list = self.network_peer.commands if self.network_peer.commands else []
+        return next((re.search('--hosted-zone-id=(.+?) ', z).group(1) for z in cmd_list if re.search('--hosted-zone-id', z)), None)
 
     def refresh(self):
         self.network_peer = self.get(self.network_peer.id)

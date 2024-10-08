@@ -68,6 +68,38 @@ def get_account_email():
         return None
 
 
+def aws_account_id():
+    sts_client = boto3.client('sts')
+    return sts_client.get_caller_identity()["Account"]
+
+
+def get_aws_vpc(vpc_name: str, vpc_cidr: str):
+    ec2_client = boto3.client('ec2', region_name=aws_region)
+    vpc_filter = [
+        {
+            'Name': 'tag:Name',
+            'Values': [
+                vpc_name
+            ]
+        },
+        {
+            'Name': "cidr",
+            'Values': [
+                vpc_cidr,
+            ]
+        }
+    ]
+    try:
+        result = ec2_client.describe_vpcs(Filters=vpc_filter)
+        return result['Vpcs']
+    except botocore.exceptions.ClientError as err:
+        if err.response['Error']['Code'].endswith('NotFound'):
+            return []
+        raise RuntimeError(f"ClientError: {err}")
+    except Exception as err:
+        raise RuntimeError(f"error getting VPC details: {err}")
+
+
 def create_aws_vpc(name: str, cidr: str, tags: dict = None) -> str:
     ec2_client = boto3.client('ec2', region_name=aws_region)
     vpc_tag = AWSTagStruct.build("vpc")
@@ -114,3 +146,35 @@ def aws_vpc_peering_accept(peer_id: str):
         raise RuntimeError(f"ClientError: {err}")
     except Exception as err:
         raise RuntimeError(f"error accepting peering request: {err}")
+
+
+def aws_hosted_zone_associations(vpc_id: str, region: str):
+    dns_client = boto3.client('route53')
+    extra_args = {}
+    results = []
+    try:
+        while True:
+            result = dns_client.list_hosted_zones_by_vpc(VPCId=vpc_id, VPCRegion=region, **extra_args)
+            results.extend(result['HostedZoneSummaries'])
+            if 'NextToken' not in result:
+                break
+            extra_args['NextToken'] = result['NextToken']
+        return results
+    except Exception as err:
+        raise RuntimeError(f"error getting VPC list: {err}")
+
+
+def aws_associate_hosted_zone(hosted_zone: str, vpc_id: str, region: str):
+    dns_client = boto3.client('route53')
+    current_associations = aws_hosted_zone_associations(vpc_id, region)
+    if next((z for z in current_associations if z.get('HostedZoneId') == hosted_zone), None):
+        return
+    vpc_info = {
+        'VPCRegion': region,
+        'VPCId': vpc_id
+    }
+    try:
+        result = dns_client.associate_vpc_with_hosted_zone(HostedZoneId=hosted_zone, VPC=vpc_info)
+        return result.get('ChangeInfo', {}).get('Status')
+    except Exception as err:
+        raise RuntimeError(f"error associating hosted zone: {err}")

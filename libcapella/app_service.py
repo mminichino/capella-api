@@ -71,16 +71,15 @@ class CapellaAppService(object):
         app_service.id = app_service_id
         self.app_service = app_service
 
-    def wait(self, state, until: bool = False, retry_count: int = 240):
+    def wait(self, state, until: bool = False, retry_count: int = 36):
         if not self.app_service:
             return True
         for retry_number in range(retry_count + 1):
             check = self.get(self.app_service.id)
+            logger.debug(f"Checking app service state {check.currentState if check else None} with state {state} until {until}")
             if not until and check and check.currentState != state:
-                time.sleep(1)
                 return True
             elif until and check and check.currentState == state:
-                time.sleep(1)
                 return True
             elif not check:
                 return True
@@ -88,7 +87,7 @@ class CapellaAppService(object):
                 if retry_number == retry_count:
                     return False
                 logger.debug(f"Waiting for app service {self.app_service.name} to reach state {state}")
-                time.sleep(5)
+                time.sleep(10)
 
     def delete(self):
         if self.app_service.id:

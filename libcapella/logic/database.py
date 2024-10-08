@@ -9,15 +9,15 @@ from libcapella.logic.common import Audit, not_none
 
 aws_storage_matrix = {
     99: 3000,
-    199: 5000,
-    299: 6000,
-    399: 8000,
-    499: 9000,
-    599: 10000,
-    699: 12000,
-    799: 13000,
-    899: 14000,
-    999: 16000,
+    199: 4370,
+    299: 5740,
+    399: 7110,
+    499: 8480,
+    599: 9850,
+    699: 11220,
+    799: 12590,
+    899: 13960,
+    999: 15330,
     16384: 16000
 }
 
@@ -247,16 +247,19 @@ class CapellaDatabaseBuilder(object):
         _ram = int(ram)
 
         if self._cloud == "aws":
-            _storage = int(storage)
+            _storage = int(storage) if quantity > 1 else 100
             _iops = next((aws_storage_matrix[s] for s in aws_storage_matrix if s >= _storage), None)
             _storage_type = "gp3"
         elif self._cloud == "azure":
-            size, s_type = next(((s, azure_storage_matrix[s]) for s in azure_storage_matrix if s >= int(storage)), None)
+            if quantity > 1:
+                size, s_type = next(((s, azure_storage_matrix[s]) for s in azure_storage_matrix if s >= int(storage)), None)
+            else:
+                size, s_type = 128, "P10"
             _storage = int(size)
             _storage_type = s_type
             _iops = None
         else:
-            _storage = int(storage)
+            _storage = int(storage) if quantity > 1 else 100
             _storage_type = "pd-ssd"
             _iops = None
 
@@ -283,7 +286,8 @@ class CapellaDatabaseBuilder(object):
         return self
 
     def build(self) -> Database:
-        if not self._availability or self._availability == "multi":
+        quantity = next((g.get('quantity') for g in self._service_groups if g.get('quantity') == 1), 3)
+        if quantity > 1:
             availability = "multi"
         else:
             availability = "single"
