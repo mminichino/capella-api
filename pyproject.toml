@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "libcapella"
 description = "Couchbase Capella Python API"
-version = "1.0.10"
+version = "1.0.11"
 readme = "README.md"
 authors = ["Michael Minichino <info@unix.us.com>"]
 classifiers = [
@@ -30,7 +30,7 @@ url = "https://pypi.org/simple/"
 [tool.poetry.dependencies]
 python = ">=3.8,<4"
 attrs = ">=23.1.0"
-restfull = ">=1.0.10"
+restfull = ">=1.0.9"
 
 [tool.poetry.group.test.dependencies]
 pytest = ">=8.1.1"
