@@ -23,7 +23,7 @@ from tests.common import (get_account_email, aws_account_id, create_aws_vpc, get
                           aws_associate_hosted_zone)
 
 warnings.filterwarnings("ignore")
-logger = logging.getLogger('tests.test_3')
+logger = logging.getLogger('tests.test_4')
 logger.addHandler(logging.NullHandler())
 
 

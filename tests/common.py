@@ -1,12 +1,20 @@
 ##
 
+import time
 import attr
 import os
 import logging
 import warnings
 import configparser
+import base64
+import json
 import botocore.exceptions
 import boto3
+import google.auth
+import googleapiclient.discovery
+import google.auth.transport.requests
+import googleapiclient.errors
+from google.cloud import resourcemanager_v3
 from typing import Iterable
 from attr.validators import instance_of as io
 from pathlib import Path
@@ -21,6 +29,7 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 local_config_file = os.path.join(Path.home(), '.capella', 'credentials')
 aws_region = 'us-east-1'
+gcp_region = 'us-central1'
 
 
 @attr.s
@@ -178,3 +187,157 @@ def aws_associate_hosted_zone(hosted_zone: str, vpc_id: str, region: str):
         return result.get('ChangeInfo', {}).get('Status')
     except Exception as err:
         raise RuntimeError(f"error associating hosted zone: {err}")
+
+
+gcp_credentials = None
+gcp_project_id = None
+gcp_service_account_email = None
+gcp_account_email = None
+
+
+def gcp_authenticate():
+    global gcp_credentials, gcp_project_id, gcp_service_account_email, gcp_account_email
+    try:
+        gcp_credentials, gcp_project_id = google.auth.default()
+
+        if hasattr(gcp_credentials, "service_account_email"):
+            gcp_service_account_email = gcp_credentials.service_account_email
+            gcp_account_email = None
+        elif hasattr(gcp_credentials, "signer_email"):
+            gcp_service_account_email = gcp_credentials.signer_email
+            gcp_account_email = None
+        else:
+            gcp_service_account_email = None
+            request = google.auth.transport.requests.Request()
+            gcp_credentials.refresh(request=request)
+            token_payload = gcp_credentials.id_token.split('.')[1]
+            input_bytes = token_payload.encode('utf-8')
+            rem = len(input_bytes) % 4
+            if rem > 0:
+                input_bytes += b"=" * (4 - rem)
+            json_data = base64.urlsafe_b64decode(input_bytes).decode('utf-8')
+            token_data = json.loads(json_data)
+            gcp_account_email = token_data.get('email')
+    except Exception as err:
+        raise RuntimeError(f"error connecting to GCP: {err}")
+
+
+def gcp_project():
+    return gcp_project_id
+
+
+def gcp_project_number():
+    rm = resourcemanager_v3.ProjectsClient()
+    req = resourcemanager_v3.GetProjectRequest(dict(name=f"projects/{gcp_project_id}"))
+    res = rm.get_project(request=req)
+    project_number = res.name.split('/')[1]
+    return project_number
+
+
+def gcp_compute_default_sa():
+    project_number = gcp_project_number()
+    return f"{project_number}-compute@developer.gserviceaccount.com"
+
+
+def gcp_network_create(name: str) -> str:
+    gcp_client = googleapiclient.discovery.build('compute', 'v1', credentials=gcp_credentials)
+    operation = {}
+    network_body = {
+        "name": name,
+        "autoCreateSubnetworks": False
+    }
+    try:
+        request = gcp_client.networks().insert(project=gcp_project_id, body=network_body)
+        operation = request.execute()
+        gcp_wait_for_global_operation(operation['name'])
+        return operation.get('targetLink')
+    except googleapiclient.errors.HttpError as err:
+        error_details = err.error_details[0].get('reason')
+        if error_details != "alreadyExists":
+            raise RuntimeError(f"can not create network: {err}")
+    except Exception as err:
+        raise RuntimeError(f"error creating network: {err}")
+
+    return operation.get('targetLink')
+
+
+def gcp_subnet_create(name: str, network_link: str, cidr: str) -> str:
+    gcp_client = googleapiclient.discovery.build('compute', 'v1', credentials=gcp_credentials)
+    operation = {}
+    subnetwork_body = {
+        "name": name,
+        "network": network_link,
+        "ipCidrRange": cidr,
+        "region": gcp_region
+    }
+    try:
+        request = gcp_client.subnetworks().insert(project=gcp_project_id, region=gcp_region, body=subnetwork_body)
+        operation = request.execute()
+        gcp_wait_for_regional_operation(operation['name'])
+    except googleapiclient.errors.HttpError as err:
+        error_details = err.error_details[0].get('reason')
+        if error_details != "alreadyExists":
+            raise RuntimeError(f"can not create subnet: {err}")
+    except Exception as err:
+        raise RuntimeError(f"error creating subnet: {err}")
+
+    return operation.get('targetLink')
+
+
+def gcp_network_delete(network: str) -> None:
+    gcp_client = googleapiclient.discovery.build('compute', 'v1', credentials=gcp_credentials)
+    try:
+        request = gcp_client.networks().delete(project=gcp_project_id, network=network)
+        operation = request.execute()
+        gcp_wait_for_global_operation(operation['name'])
+    except googleapiclient.errors.HttpError as err:
+        error_details = err.error_details[0].get('reason')
+        if error_details != "notFound":
+            raise RuntimeError(f"can not delete network: {err}")
+    except Exception as err:
+        raise RuntimeError(f"error deleting network: {err}")
+
+
+def gcp_subnet_delete(subnet: str) -> None:
+    gcp_client = googleapiclient.discovery.build('compute', 'v1', credentials=gcp_credentials)
+    try:
+        request = gcp_client.subnetworks().delete(project=gcp_project_id, region=gcp_region, subnetwork=subnet)
+        operation = request.execute()
+        gcp_wait_for_regional_operation(operation['name'])
+    except googleapiclient.errors.HttpError as err:
+        error_details = err.error_details[0].get('reason')
+        if error_details != "notFound":
+            raise RuntimeError(f"can not delete subnet: {err}")
+    except Exception as err:
+        raise RuntimeError(f"error deleting subnet: {err}")
+
+
+def gcp_wait_for_global_operation(operation):
+    gcp_client = googleapiclient.discovery.build('compute', 'v1', credentials=gcp_credentials)
+    while True:
+        result = gcp_client.globalOperations().get(
+            project=gcp_project_id,
+            operation=operation).execute()
+
+        if result['status'] == 'DONE':
+            if 'error' in result:
+                raise RuntimeError(result['error'])
+            return result
+
+        time.sleep(1)
+
+
+def gcp_wait_for_regional_operation(operation):
+    gcp_client = googleapiclient.discovery.build('compute', 'v1', credentials=gcp_credentials)
+    while True:
+        result = gcp_client.regionOperations().get(
+            project=gcp_project_id,
+            region=gcp_region,
+            operation=operation).execute()
+
+        if result['status'] == 'DONE':
+            if 'error' in result:
+                raise RuntimeError(result['error'])
+            return result
+
+        time.sleep(1)
