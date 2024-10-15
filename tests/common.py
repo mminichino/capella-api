@@ -7,15 +7,18 @@ import logging
 import warnings
 import configparser
 import base64
+import hashlib
 import json
+import sqlite3
 import botocore.exceptions
 import boto3
 import google.auth
+import google.auth.impersonated_credentials
 import googleapiclient.discovery
 import google.auth.transport.requests
 import googleapiclient.errors
 from google.cloud import resourcemanager_v3
-from typing import Iterable
+from typing import Iterable, Union
 from attr.validators import instance_of as io
 from pathlib import Path
 
@@ -30,6 +33,11 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 local_config_file = os.path.join(Path.home(), '.capella', 'credentials')
 aws_region = 'us-east-1'
 gcp_region = 'us-central1'
+
+
+def short_hash(text: str) -> str:
+    hasher = hashlib.sha1(text.encode())
+    return base64.urlsafe_b64encode(hasher.digest()[:4]).decode().replace('=', '').lower()
 
 
 @attr.s
@@ -222,6 +230,44 @@ def gcp_authenticate():
         raise RuntimeError(f"error connecting to GCP: {err}")
 
 
+def gcp_get_config_dir():
+    if 'CLOUDSDK_CONFIG' in os.environ:
+        return os.environ['CLOUDSDK_CONFIG']
+    if os.name != 'nt':
+        return os.path.join(Path.home(), '.config', 'gcloud')
+    if 'APPDATA' in os.environ:
+        return os.path.join(os.environ['APPDATA'], 'gcloud')
+    drive = os.environ.get('SystemDrive', 'C:')
+    return os.path.join(drive, os.path.sep, 'gcloud')
+
+
+def gcp_get_account(account: str):
+    account_db = os.path.join(gcp_get_config_dir(), 'credentials.db')
+    connection = sqlite3.connect(
+        account_db,
+        detect_types=sqlite3.PARSE_DECLTYPES,
+        isolation_level=None,
+        check_same_thread=True
+    )
+
+    cursor = connection.cursor()
+    table = cursor.execute('SELECT account_id, value FROM credentials').fetchall()
+    for row in table:
+        account_id, cred_json = row[0], row[1]
+        if account_id == account:
+            return json.loads(cred_json)
+
+    return None
+
+
+def gcp_sa_auth(service_account_email):
+    auth_data = gcp_get_account(service_account_email)
+    if not auth_data:
+        raise RuntimeError(f"Account {service_account_email} is not configured. Use gcloud auth to add the account.")
+    credentials, _ = google.auth.load_credentials_from_dict(auth_data)
+    return credentials
+
+
 def gcp_project():
     return gcp_project_id
 
@@ -237,6 +283,21 @@ def gcp_project_number():
 def gcp_compute_default_sa():
     project_number = gcp_project_number()
     return f"{project_number}-compute@developer.gserviceaccount.com"
+
+
+def gcp_get_network(network: str) -> Union[dict, None]:
+    gcp_client = googleapiclient.discovery.build('compute', 'v1', credentials=gcp_credentials)
+    try:
+        request = gcp_client.networks().get(project=gcp_project_id, network=network)
+        result = request.execute()
+        return result
+    except googleapiclient.errors.HttpError as err:
+        error_details = err.error_details[0].get('reason')
+        if error_details != "notFound":
+            raise RuntimeError(f"can not find network: {err}")
+        return None
+    except Exception as err:
+        raise RuntimeError(f"error getting network: {err}")
 
 
 def gcp_network_create(name: str) -> str:
@@ -296,6 +357,114 @@ def gcp_network_delete(network: str) -> None:
             raise RuntimeError(f"can not delete network: {err}")
     except Exception as err:
         raise RuntimeError(f"error deleting network: {err}")
+
+
+def gcp_add_peering(name: str, network: str, peer_project: str, peer_network: str) -> None:
+    gcp_client = googleapiclient.discovery.build('compute', 'v1', credentials=gcp_credentials)
+    peering_body = {
+        "networkPeering": {
+            "name": name,
+            "network": f"projects/{peer_project}/global/networks/{peer_network}",
+            "exchangeSubnetRoutes": True
+        }
+    }
+    try:
+        request = gcp_client.networks().addPeering(project=gcp_project_id, network=network, body=peering_body)
+        operation = request.execute()
+        gcp_wait_for_global_operation(operation['name'])
+    except googleapiclient.errors.HttpError as err:
+        error_details = err.error_details[0].get('reason')
+        if error_details != "alreadyExists":
+            raise RuntimeError(f"can not add network peering: {err}")
+    except Exception as err:
+        raise RuntimeError(f"error adding network peering: {err}")
+
+
+def gcp_remove_peering(name: str, network: str) -> None:
+    gcp_client = googleapiclient.discovery.build('compute', 'v1', credentials=gcp_credentials)
+    remove_body = {
+        "name": name
+    }
+    try:
+        request = gcp_client.networks().removePeering(project=gcp_project_id, network=network, body=remove_body)
+        operation = request.execute()
+        gcp_wait_for_global_operation(operation['name'])
+    except googleapiclient.errors.HttpError as err:
+        error_details = err.error_details[0].get('reason')
+        if error_details != "notFound":
+            raise RuntimeError(f"can not remove network peering: {err}")
+    except Exception as err:
+        raise RuntimeError(f"error removing network peering: {err}")
+
+
+def fqdn(domain: str):
+    if domain[-1] not in ['.']:
+        domain = domain + '.'
+    return domain
+
+
+def gcp_create_managed_zone(name: str,
+                            domain: str,
+                            network_link: str = None,
+                            private: bool = False,
+                            peer_project: str = None,
+                            peer_network: str = None,
+                            service_account: str = None):
+    if service_account:
+        dns_client = googleapiclient.discovery.build('dns', 'v1', credentials=gcp_sa_auth(service_account))
+    else:
+        dns_client = googleapiclient.discovery.build('dns', 'v1', credentials=gcp_credentials)
+    visibility = 'private' if private else 'public'
+    dns_body = {
+        'kind': 'dns#managedZone',
+        'name': name,
+        'dnsName': fqdn(domain),
+        'description': 'Couch Formation Managed Zone',
+        'visibility': visibility
+    }
+    if private and network_link:
+        dns_body['privateVisibilityConfig'] = {
+            "kind": "dns#managedZonePrivateVisibilityConfig",
+            "networks": [
+                {
+                    "kind": "dns#managedZonePrivateVisibilityConfigNetwork",
+                    "networkUrl": network_link
+                }
+            ]
+        }
+    if peer_project and peer_network:
+        dns_body['peeringConfig'] = {
+            "targetNetwork": {
+                "networkUrl": f"https://www.googleapis.com/compute/v1/projects/{peer_project}/global/networks/{peer_network}",
+                "kind": "dns#managedZonePeeringConfigTargetNetwork"
+            },
+            "kind": "dns#managedZonePeeringConfig"
+        }
+
+    try:
+        request = dns_client.managedZones().create(project=gcp_project_id, body=dns_body)
+        result = request.execute()
+        return result.get('name')
+    except googleapiclient.errors.HttpError as err:
+        error_details = err.error_details[0].get('reason')
+        if error_details != "alreadyExists":
+            raise RuntimeError(f"can not create managed zone: {err}")
+        return name
+    except Exception as err:
+        raise RuntimeError(f"error creating managed zone: {err}")
+
+
+def gcp_delete_managed_zone(name: str):
+    dns_client = googleapiclient.discovery.build('dns', 'v1', credentials=gcp_credentials)
+    try:
+        request = dns_client.managedZones().delete(project=gcp_project_id, managedZone=name)
+        request.execute()
+    except googleapiclient.errors.HttpError as err:
+        error_details = err.error_details[0].get('reason')
+        if error_details != "notFound":
+            raise RuntimeError(f"can not delete managed zone: {err}")
+    except Exception as err:
+        raise RuntimeError(f"error deleting managed zone: {err}")
 
 
 def gcp_subnet_delete(subnet: str) -> None:

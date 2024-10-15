@@ -43,6 +43,21 @@ class CapellaNetworkPeers(object):
         cmd_list = self.network_peer.commands if self.network_peer.commands else []
         return next((re.search('--hosted-zone-id=(.+?) ', z).group(1) for z in cmd_list if re.search('--hosted-zone-id', z)), None)
 
+    @property
+    def peer_project(self):
+        cmd_list = self.network_peer.commands if self.network_peer.commands else []
+        return next((re.search('--peer-project\s+(.+?) ', z).group(1) for z in cmd_list if re.search('--peer-project', z)), None)
+
+    @property
+    def peer_network(self):
+        cmd_list = self.network_peer.commands if self.network_peer.commands else []
+        return next((re.search('--peer-network\s+(.+?)$', z).group(1) for z in cmd_list if re.search('--peer-network', z)), None)
+
+    @property
+    def managed_zone(self):
+        cmd_list = self.network_peer.commands if self.network_peer.commands else []
+        return next((re.search('--dns-name=(.+?) ', z).group(1) for z in cmd_list if re.search('--dns-name', z)), None)
+
     def refresh(self):
         self.network_peer = self.get(self.network_peer.id)
 

@@ -22,7 +22,7 @@ from libcapella.logic.credentials import DatabaseCredentialsBuilder
 from libcapella.logic.app_service import CapellaAppServiceBuilder
 from libcapella.logic.network_peers import NetworkPeerBuilder
 from tests.common import (get_account_email, gcp_authenticate, gcp_compute_default_sa, gcp_network_delete, gcp_subnet_create, gcp_region, gcp_project, gcp_network_create,
-                          gcp_subnet_delete)
+                          gcp_subnet_delete, gcp_add_peering, gcp_create_managed_zone, gcp_remove_peering, gcp_delete_managed_zone, gcp_get_network, short_hash)
 
 warnings.filterwarnings("ignore")
 logger = logging.getLogger('tests.test_5')
@@ -36,12 +36,13 @@ class TestDatabase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        rand_part = ''.join(random.choice(string.ascii_lowercase) for _ in range(8))
         cls.database_name = "pytest-cluster"
         cls.app_service_name = "pytest-app-svc"
         cls.project_name = "pytest-project"
-        cls.network_name = f"pytest-net-{rand_part}"
-        cls.subnet_name = f"pytest-subnet-{rand_part}"
+        cls.network_name = f"pytest-{short_hash(cls.database_name)}-net"
+        cls.subnet_name = f"pytest-{short_hash(cls.database_name)}-subnet"
+        cls.peer_name = f"pytest-{short_hash(cls.database_name)}-peer"
+        cls.managed_zone_name = f"pytest-{short_hash(cls.database_name)}-managed-zone"
         cls.network_cidr = "10.77.0.0/16"
         cls.vpc_id = None
         cls.cidr = "0.0.0.0/0"
@@ -61,8 +62,8 @@ class TestDatabase(unittest.TestCase):
         cls.network_peer = None
         cls.app_service = None
         gcp_authenticate()
-        net_link = gcp_network_create(cls.network_name)
-        gcp_subnet_create(cls.subnet_name, net_link, cls.network_cidr)
+        cls.net_link = gcp_network_create(cls.network_name)
+        gcp_subnet_create(cls.subnet_name, cls.net_link, cls.network_cidr)
 
     @classmethod
     def tearDownClass(cls):
@@ -119,9 +120,9 @@ class TestDatabase(unittest.TestCase):
             assert self.database_credential.id is not None
 
     def test_5(self):
+        service_account = gcp_compute_default_sa()
         self.network_peer = CapellaNetworkPeers(self.database)
         if not self.network_peer.id:
-            service_account = gcp_compute_default_sa()
             gcp_project_name = gcp_project()
             builder = NetworkPeerBuilder()
             builder.provider_type("gcp")
@@ -132,7 +133,16 @@ class TestDatabase(unittest.TestCase):
             config = builder.build()
             self.network_peer.create(config)
             assert self.network_peer.id is not None
-            self.network_peer.refresh()
+        self.network_peer.refresh()
+
+        if not self.net_link:
+            self.net_link = gcp_get_network(self.network_name).get('selfLink')
+        peer_project = self.network_peer.peer_project
+        peer_network = self.network_peer.peer_network
+        managed_zone = self.network_peer.managed_zone
+        gcp_add_peering(self.peer_name, self.network_name, peer_project, peer_network)
+        gcp_create_managed_zone(self.managed_zone_name, managed_zone, self.net_link, True, peer_project, peer_network, service_account)
+        self.database.wait("peering")
 
     def test_6(self):
         self.app_service = CapellaAppService(self.database)
@@ -151,5 +161,7 @@ class TestDatabase(unittest.TestCase):
     def test_7(self):
         self.database.delete()
         self.database.wait("destroying")
+        gcp_remove_peering(self.peer_name, self.network_name)
+        gcp_delete_managed_zone(self.managed_zone_name)
         gcp_subnet_delete(self.subnet_name)
         gcp_network_delete(self.network_name)
