@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "libcapella"
 description = "Couchbase Capella Python API"
-version = "1.0.14"
+version = "1.0.15"
 readme = "README.md"
 authors = ["Michael Minichino <info@unix.us.com>"]
 classifiers = [
@@ -42,6 +42,9 @@ google-api-core = ">=2.4.0"
 google-api-python-client = ">=2.34.0"
 google-cloud = ">=0.34.0"
 google-cloud-resource-manager = ">=1.12.5"
+azure-identity = ">=1.12.0"
+azure-mgmt-resource = ">=23.1.1"
+azure-mgmt-network = ">=25.3.0"
 
 [tool.poetry.group.dev.dependencies]
 bumpversion = "^0.6.0"
@@ -75,5 +78,6 @@ markers = [
     "database_test: marks a test as a Database test",
     "columnar_test: marks a test as a Columnar test",
     "aws_test: marks a test as an AWS test",
-    "gcp_test: marks a test as an AWS test",
+    "gcp_test: marks a test as an GCP test",
+    "azure_test: marks a test as an Azure test"
 ]

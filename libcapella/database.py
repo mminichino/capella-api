@@ -79,7 +79,7 @@ class CapellaDatabase(object):
         database.id = database_id
         self.database = database
 
-    def wait(self, state, retry_count: int = 36):
+    def wait(self, state, retry_count: int = 90):
         if not self.database:
             return True
         for retry_number in range(retry_count + 1):

@@ -32,6 +32,28 @@ azure_storage_matrix = {
     8192: "P60"
 }
 
+azure_ultra_matrix = {
+    64: 3000,
+    128: 4000,
+    256: 6000,
+    512: 8000,
+    1024: 16000,
+    2048: 16000,
+    3072: 16000,
+    4096: 16000,
+    5120: 16000,
+    6144: 16000,
+    7168: 16000,
+    8192: 16000,
+    9216: 16000,
+    10240: 16000,
+    11264: 16000,
+    12288: 16000,
+    13312: 16000,
+    14336: 16000,
+    15360: 16000
+}
+
 
 @attr.s
 class CloudProvider:
@@ -241,7 +263,7 @@ class CapellaDatabaseBuilder(object):
         self._version = version
         return self
 
-    def service_group(self, machine_type: str, quantity: Union[str, int], storage: Union[str, int], services: Union[None, str, List[str]] = None):
+    def service_group(self, machine_type: str, quantity: Union[str, int], storage: Union[str, int], services: Union[None, str, List[str]] = None, ultra: bool = False):
         cpu, ram = machine_type.split('x')
         _cpu = int(cpu)
         _ram = int(ram)
@@ -251,13 +273,21 @@ class CapellaDatabaseBuilder(object):
             _iops = next((aws_storage_matrix[s] for s in aws_storage_matrix if s >= _storage), None)
             _storage_type = "gp3"
         elif self._cloud == "azure":
-            if quantity > 1:
-                size, s_type = next(((s, azure_storage_matrix[s]) for s in azure_storage_matrix if s >= int(storage)), None)
+            if not ultra:
+                if quantity > 1:
+                    _, s_type = next(((s, azure_storage_matrix[s]) for s in azure_storage_matrix if s >= int(storage)), None)
+                else:
+                    _, s_type = 128, "P10"
+                _storage = None
+                _storage_type = s_type
+                _iops = None
             else:
-                size, s_type = 128, "P10"
-            _storage = int(size)
-            _storage_type = s_type
-            _iops = None
+                if quantity == 1:
+                    raise ValueError("Ultra disks are not compatible with single node clusters")
+                size, iops = next(((s, azure_ultra_matrix[s]) for s in azure_ultra_matrix if s >= int(storage)), None)
+                _storage = size
+                _storage_type = "Ultra"
+                _iops = iops
         else:
             _storage = int(storage) if quantity > 1 else 100
             _storage_type = "pd-ssd"

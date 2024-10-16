@@ -71,7 +71,7 @@ class CapellaAppService(object):
         app_service.id = app_service_id
         self.app_service = app_service
 
-    def wait(self, state, until: bool = False, retry_count: int = 36):
+    def wait(self, state, until: bool = False, retry_count: int = 90):
         if not self.app_service:
             return True
         for retry_number in range(retry_count + 1):

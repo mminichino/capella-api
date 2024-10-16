@@ -17,6 +17,11 @@ import google.auth.impersonated_credentials
 import googleapiclient.discovery
 import google.auth.transport.requests
 import googleapiclient.errors
+from azure.identity import AzureCliCredential
+from azure.mgmt.resource.subscriptions import SubscriptionClient
+from azure.core.exceptions import ResourceNotFoundError
+from azure.mgmt.network.models import VirtualNetwork
+from azure.mgmt.network import NetworkManagementClient
 from google.cloud import resourcemanager_v3
 from typing import Iterable, Union
 from attr.validators import instance_of as io
@@ -33,6 +38,7 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 local_config_file = os.path.join(Path.home(), '.capella', 'credentials')
 aws_region = 'us-east-1'
 gcp_region = 'us-central1'
+azure_region = 'eastus'
 
 
 def short_hash(text: str) -> str:
@@ -510,3 +516,79 @@ def gcp_wait_for_regional_operation(operation):
             return result
 
         time.sleep(1)
+
+
+azure_credential = None
+azure_tenant_id = ""
+azure_subscription_id = ""
+
+
+def azure_authenticate():
+    global azure_credential, azure_tenant_id, azure_subscription_id
+    try:
+        azure_credential = AzureCliCredential()
+        token = azure_credential.get_token("https://management.azure.com/", scopes=["user.read"])
+        base64_meta_data = token.token.split(".")[1].encode("utf-8") + b'=='
+        json_bytes = base64.decodebytes(base64_meta_data)
+        json_string = json_bytes.decode("utf-8")
+        json_dict = json.loads(json_string)
+        upn = json_dict.get("upn", "unavailableUpn")
+        subscription_client = SubscriptionClient(azure_credential)
+        subscriptions = subscription_client.subscriptions.list()
+        azure_subscription_id = next((s.subscription_id for s in subscriptions), None)
+        azure_principal_id = upn
+        azure_tenant_id = json_dict["tid"]
+        return azure_credential, azure_subscription_id, azure_tenant_id
+    except Exception as err:
+        raise RuntimeError(f"Azure: unauthorized (use az login): {err}")
+
+
+def get_azure_tenant_id():
+    return azure_tenant_id
+
+
+def get_azure_subscription_id():
+    return azure_subscription_id
+
+
+def azure_get_network(network: str, resource_group: str) -> Union[VirtualNetwork, None]:
+    network_client = NetworkManagementClient(azure_credential, azure_subscription_id)
+    try:
+        info = network_client.virtual_networks.get(resource_group, network)
+        return info
+    except ResourceNotFoundError:
+        return None
+    except Exception as err:
+        raise RuntimeError(f"error getting vnet: {err}")
+
+
+def azure_create_network(name: str, cidr: str, resource_group: str):
+    network_client = NetworkManagementClient(azure_credential, azure_subscription_id)
+    parameters = {
+        'location': azure_region,
+        'address_space': {
+            'address_prefixes': [cidr]
+        }
+    }
+
+    net_info = azure_get_network(name, resource_group)
+    if net_info:
+        return net_info
+
+    try:
+        request = network_client.virtual_networks.begin_create_or_update(resource_group, name, parameters)
+        request.wait()
+        return request.result()
+    except Exception as err:
+        raise RuntimeError(f"error creating network: {err}")
+
+
+def azure_delete_network(network: str, resource_group: str) -> None:
+    network_client = NetworkManagementClient(azure_credential, azure_subscription_id)
+    try:
+        request = network_client.virtual_networks.begin_delete(resource_group, network)
+        request.wait()
+    except ResourceNotFoundError:
+        return None
+    except Exception as err:
+        raise RuntimeError(f"error getting vnet: {err}")
