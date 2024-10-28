@@ -79,7 +79,7 @@ class CapellaColumnar(object):
         columnar.id = cluster_id
         self.cluster = columnar
 
-    def wait(self, state, retry_count: int = 36):
+    def wait(self, state, retry_count: int = 90):
         if not self.cluster:
             return True
         for retry_number in range(retry_count + 1):
