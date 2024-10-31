@@ -16,9 +16,12 @@ class CapellaUser(object):
     def __init__(self, org: CapellaOrganization, email: Union[str, None] = None):
         self._endpoint = f"{org.endpoint}/{org.id}/users"
         self.rest = org.rest
-        self.email = email
-        if self.email:
-            self.user_record = self.get_by_email(self.email)
+        if email is not None:
+            self.user_record = self.get_by_email(email)
+        elif org.config.account_email is not None:
+            self.user_record = self.get_by_email(org.config.account_email)
+        elif org.config.account_id is not None:
+            self.user_record = self.get(org.config.account_id)
         else:
             self.user_record = None
 

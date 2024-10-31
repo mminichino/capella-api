@@ -25,6 +25,7 @@ logger = logging.getLogger('tests.test_6')
 logger.addHandler(logging.NullHandler())
 
 
+@pytest.mark.full_test
 @pytest.mark.azure_test
 @pytest.mark.database_test
 @pytest.mark.order(6)

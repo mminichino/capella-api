@@ -18,7 +18,7 @@ class CapellaColumnar(object):
         self._endpoint = f"{project.endpoint}/{project.id}/analyticsClusters"
         self.rest = project.rest
         self.project = project
-        self.cluster_name = cluster
+        self.cluster_name = cluster if cluster else project.org.config.columnar_name
         if self.cluster_name:
             self.cluster = self.get_by_name(self.cluster_name)
         else:

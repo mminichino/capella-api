@@ -12,10 +12,11 @@ from libcapella.user import CapellaUser
 from tests.common import get_account_email
 
 warnings.filterwarnings("ignore")
-logger = logging.getLogger('tests.test_2')
+logger = logging.getLogger('tests.test_3')
 logger.addHandler(logging.NullHandler())
 
 
+@pytest.mark.full_test
 @pytest.mark.project_test
 @pytest.mark.order(3)
 class TestProject(unittest.TestCase):

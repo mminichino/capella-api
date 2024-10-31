@@ -1,0 +1,4 @@
+##
+
+class CapellaNotFoundError(Exception):
+    pass

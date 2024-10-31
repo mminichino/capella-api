@@ -14,6 +14,7 @@ logger = logging.getLogger('tests.test_2')
 logger.addHandler(logging.NullHandler())
 
 
+@pytest.mark.full_test
 @pytest.mark.user_test
 @pytest.mark.order(2)
 class TestUser(unittest.TestCase):

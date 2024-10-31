@@ -12,6 +12,7 @@ logger = logging.getLogger('tests.test_1')
 logger.addHandler(logging.NullHandler())
 
 
+@pytest.mark.full_test
 @pytest.mark.org_test
 @pytest.mark.order(1)
 class TestOrganization(unittest.TestCase):

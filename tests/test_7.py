@@ -14,12 +14,13 @@ from libcapella.logic.allowed_cidr import AllowedCIDRBuilder
 from tests.common import get_account_email
 
 warnings.filterwarnings("ignore")
-logger = logging.getLogger('tests.test_4')
+logger = logging.getLogger('tests.test_7')
 logger.addHandler(logging.NullHandler())
 
 
+@pytest.mark.full_test
 @pytest.mark.columnar_test
-@pytest.mark.order(5)
+@pytest.mark.order(7)
 class TestColumnar(unittest.TestCase):
 
     @classmethod

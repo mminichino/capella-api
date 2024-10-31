@@ -13,10 +13,10 @@ logger.addHandler(logging.NullHandler())
 class CouchbaseCapella(object):
 
     def __init__(self, config: CapellaConfig):
-        self.auth_token = config.token
-        self.api_host = config.api_host
-        self.project = config.project
-        logger.debug(f"using auth profile {config.profile} API key ID {config.key_id}")
+        self.config = config.config
+        self.auth_token = self.config.token
+        self.api_host = self.config.api_host
 
         auth = BearerAuth(self.auth_token)
         self.rest = RestAPI(auth, self.api_host)
+        self.rest.retry_server_errors()

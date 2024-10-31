@@ -4,7 +4,8 @@
 import time
 import logging
 from typing import List, Union
-from restfull.restapi import NotFoundError
+from restfull.restapi import NotFoundError, UnprocessableEntityError
+from pytoolbase.retry import retry
 from libcapella.project import CapellaProject
 from libcapella.logic.database import Database
 
@@ -18,7 +19,7 @@ class CapellaDatabase(object):
         self._endpoint = f"{project.endpoint}/{project.id}/clusters"
         self.rest = project.rest
         self.project = project
-        self.database_name = database
+        self.database_name = database if database else project.org.config.database_name
         if self.database_name:
             self.database = self.get_by_name(self.database_name)
         else:
@@ -74,8 +75,13 @@ class CapellaDatabase(object):
             return None
         return Database.create(result)
 
+    @retry(retry_count=5, factor=0.001, allow_list=(UnprocessableEntityError,))
     def create(self, database: Database):
-        database_id = self.rest.post(self._endpoint, database.as_dict_striped).validate().as_json().json_key("id")
+        if self.database_name:
+            database.name = self.database_name
+        config = database.as_dict_striped
+        logger.debug(f"creating database {database.name}:\n{config}")
+        database_id = self.rest.post(self._endpoint, config).validate().as_json().json_key("id")
         database.id = database_id
         self.database = database
 

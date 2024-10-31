@@ -6,6 +6,7 @@ import attrs
 from enum import Enum
 from typing import List, Union
 from libcapella.logic.common import Audit, not_none
+from libcapella.network_util import NetworkDriver
 
 aws_storage_matrix = {
     99: 3000,
@@ -211,17 +212,18 @@ class CapellaDatabaseBuilder(object):
                  name='cbdb',
                  description='Couchbase Cluster',
                  region='us-east-1',
-                 cidr='10.1.20.0/23',
+                 cidr=None,
                  availability='multi',
                  plan='developer',
                  timezone='us_west',
                  version=None):
+        cidr_util = NetworkDriver()
         self._name = name
         self._description = description
         self._cloud = cloud
         self._region = region
         self._service_groups = []
-        self._cidr = cidr
+        self._cidr = cidr if cidr else cidr_util.get_random_subnet(prefix=23)
         self._availability = availability
         self._plan = plan
         self._timezone = timezone
