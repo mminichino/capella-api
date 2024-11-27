@@ -22,6 +22,7 @@ class CapellaProject(object):
         self.user = CapellaUser(org, email)
         self.org = org
         self.project_name = project if project else org.config.project_name if org.config.project_name is not None else "default"
+        self.project = None
         try:
             if project is not None:
                 self.project = self.get_by_name(project)
@@ -29,8 +30,6 @@ class CapellaProject(object):
                 self.project = self.get_by_name(org.config.project_name)
             elif org.config.project_id is not None:
                 self.project = self.get(org.config.project_id)
-            else:
-                self.project = None
         except CapellaNotFoundError:
             pass
 
