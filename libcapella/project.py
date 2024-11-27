@@ -22,17 +22,22 @@ class CapellaProject(object):
         self.user = CapellaUser(org, email)
         self.org = org
         self.project_name = project if project else org.config.project_name if org.config.project_name is not None else "default"
-        if project is not None:
-            self.project = self.get_by_name(project)
-        elif org.config.project_name is not None:
-            self.project = self.get_by_name(org.config.project_name)
-        elif org.config.project_id is not None:
-            self.project = self.get(org.config.project_id)
-        else:
+        try:
+            if project is not None:
+                self.project = self.get_by_name(project)
+            elif org.config.project_name is not None:
+                self.project = self.get_by_name(org.config.project_name)
+            elif org.config.project_id is not None:
+                self.project = self.get(org.config.project_id)
+            else:
+                self.project = None
+        except CapellaNotFoundError:
+            pass
+
+        if not self.project:
             builder = CapellaProjectBuilder()
             builder = builder.name(self.project_name)
-            config = builder.build()
-            self.create(config)
+            self.project = builder.build()
 
     @property
     def endpoint(self):
